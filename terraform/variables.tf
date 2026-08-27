@@ -14,12 +14,18 @@ variable "typ_instancji" {
   description = <<-OPIS
     Typ instancji EC2.
 
-    t3.micro mieści się w darmowym pułapie (750 h/mies. przez pierwsze
-    12 miesięcy konta). Poza tym okresem kosztuje ok. 8 USD/mies.,
-    więc instancję wyłącza się po zrobieniu zrzutów.
+    t3.small, a NIE t3.micro — sprawdzone na żywym węźle 27.08.2026.
+    Na t3.micro (1 GB RAM) sam serwer k3s zajmował 553 MB, pamięć schodziła
+    do 54 MB wolnego, obciążenie skakało do 9, a start nigdy się nie kończył:
+    API na porcie 6443 zwracało "TLS handshake timeout" nawet po 30 minutach.
+    Dokłada się do tego tryb kredytów "standard", który dławi procesor
+    dokładnie wtedy, gdy k3s najbardziej go potrzebuje — przy starcie.
+
+    t3.small ma 2 GB RAM i dwa razy wyższy pułap bazowy procesora.
+    Kosztuje ok. 0,022 USD/h, czyli 4 grosze za dwie godziny demo.
   OPIS
   type        = string
-  default     = "t3.micro"
+  default     = "t3.small"
 }
 
 variable "moj_ip" {

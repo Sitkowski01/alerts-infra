@@ -145,6 +145,50 @@ terraform destroy
 Sprawdź potem w **Cost Explorerze**, filtrując po tagu `Projekt = price-alerts`,
 czy na pewno nic nie zostało. Wszystkie zasoby są otagowane przez `default_tags`.
 
+## Wynik uruchomienia
+
+Ta konfiguracja **stała na AWS** 28.08.2026 w regionie `eu-central-1`.
+Nie jest to plan ani zamiar — poniżej stan z działającego węzła.
+
+```
+$ kubectl get nodes -o wide
+NAME             STATUS   ROLES           VERSION        OS-IMAGE
+ip-10-20-1-253   Ready    control-plane   v1.36.3+k3s1   Ubuntu 24.04.4 LTS
+
+$ kubectl -n price-alerts get pods
+postgres-768dbdbb88-szhvr          1/1   Running     0   3m56s
+price-alerts-api-b67b8f585-4nq86   1/1   Running     0   48s
+price-alerts-api-b67b8f585-c5qtt   1/1   Running     0   48s
+price-alerts-migrate-p4zgr         0/1   Completed   0   61s
+```
+
+Aplikacja odpowiadała przez `Service`, z wnętrza klastra, na dwóch replikach:
+sonda `readyz` z osiągalną bazą, utworzenie alertu `HTTP 201`, zapis bez klucza
+odrzucony `HTTP 401`, notowanie poniżej progu bez efektu, notowanie powyżej progu
+uruchamiające alert.
+
+Po zrobieniu zrzutów: `terraform destroy`.
+
+### Czego nauczyło to uruchomienie
+
+**`t3.micro` nie udźwignie k3s.** Pierwsze podejście stanęło właśnie na tym:
+
+```
+Mem:  911 total, 856 used, 54 available    <- pamiec wyczerpana
+load average: 9.03                          <- wezel sie dusi
+k3s: active od 33 min, zjadl 21 min CPU     <- start nigdy sie nie konczyl
+```
+
+Sam serwer k3s zajmował 553 MB przy gigabajcie pamięci, a API na porcie 6443
+zwracało `TLS handshake timeout` nawet po pół godzinie. Do tego tryb kredytów
+`standard` dławi procesor dokładnie wtedy, gdy k3s najbardziej go potrzebuje —
+przy starcie. Dopiero `t3.small` z 2 GB doprowadził węzeł do `Ready`.
+
+Drugie potknięcie było w opisach reguł grupy zabezpieczeń: **AWS odrzuca myślnik
+pauzę i polskie znaki** w tym polu. `terraform validate` tego nie widzi, bo
+składniowo wszystko jest poprawne — błąd wychodzi dopiero przy `apply`, gdy część
+zasobów już powstała. Opisy są teraz czystym ASCII, z komentarzem ostrzegawczym.
+
 ## Decyzje, o które warto zapytać
 
 - **k3s zamiast EKS** — powód kosztowy opisany wyżej. To nadal certyfikowany

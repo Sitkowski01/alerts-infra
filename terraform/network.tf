@@ -49,6 +49,9 @@ resource "aws_route_table_association" "publiczna" {
   route_table_id = aws_route_table.publiczna.id
 }
 
+# UWAGA: opisy regul ponizej musza byc czystym ASCII. AWS odrzuca w tym polu
+# myslnik pauze i polskie znaki, a blad wychodzi dopiero przy `apply`,
+# gdy czesc zasobow juz powstala.
 resource "aws_security_group" "wezel" {
   name        = "${var.nazwa}-wezel"
   description = "Dostep do wezla k3s"
@@ -80,7 +83,7 @@ resource "aws_vpc_security_group_ingress_rule" "api_kubernetes" {
 
 resource "aws_vpc_security_group_ingress_rule" "http" {
   security_group_id = aws_security_group.wezel.id
-  description       = "Ingress k3s (Traefik) — tylko z mojego adresu"
+  description       = "Ingress k3s (Traefik) - tylko z mojego adresu"
   cidr_ipv4         = var.moj_ip
   from_port         = 80
   to_port           = 80
