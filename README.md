@@ -45,9 +45,28 @@ startują domyślnie w trybie `unlimited`, w którym dłuższe obciążenie proc
 potrafi tak obciążyć procesor przy starcie. W trybie `standard` instancja przy braku
 kredytów po prostu zwalnia — wolniejsze demo jest lepsze niż niespodzianka na rachunku.
 
-⚠ **Zasady darmowego pułapu AWS zmieniały się w 2025 roku.** Sprawdź, co dokładnie
-obejmuje Twoje konto, na stronie AWS przy jego zakładaniu — nie zakładaj z góry,
-że masz klasyczne 12 miesięcy.
+### Nowy model rozliczeń AWS (sprawdzone na koncie, 27.08.2026)
+
+Konta zakładane obecnie **nie dostają klasycznego pułapu 12 miesięcy**, tylko
+**pulę kredytów: 100 USD na 6 miesięcy**. Widać ją w konsoli w kafelku
+„Cost and usage" jako *Remaining credits*.
+
+Różnica jest istotna i działa na Twoją korzyść: przy planie darmowym
+**dostęp do usług kończy się, gdy kredyty się wyczerpią** — konto nie zaczyna
+naliczać rachunku po cichu. Zapomniana instancja zjada kredyty, a nie pieniądze.
+
+Przy koszcie ok. **0,013 USD/h** pula 100 USD wystarcza na ponad **7 500 godzin**
+pracy tego klastra, czyli grubo ponad rok ciągłego działania. Dla tego demo
+to praktycznie zero.
+
+⚠ To nie znosi obowiązku `terraform destroy`. Kredyty są też walutą do nauki
+innych usług — nie ma powodu palić ich na klaster, na który nikt nie patrzy.
+
+💡 **Konsola oferuje 100 USD dodatkowych kredytów za pięć zadań**, po 20 USD każde.
+Dwa z nich to dokładnie to, co robi ten Terraform: *„Launching an instance using EC2"*
+i *„Setting up a cost budget with AWS Budgets"*. Sprawdź w kafelku „Explore AWS",
+czy zaliczają się przy tworzeniu zasobów przez Terraform, czy trzeba przejść
+kreator w konsoli.
 
 ## Co powstaje
 
