@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    name: Formatowanie, walidacja i kontrola bezpieczeństwa
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Formatowanie
+        run: terraform fmt -check -recursive -diff
+
+      - name: Init
+        # -backend=false: walidacja nie potrzebuje stanu ani poswiadczen AWS.
+        run: terraform init -backend=false -input=false
+
+      - name: Walidacja
+        run: terraform validate
+
+      - name: Skrypt bootstrapu
+        # user_data ma szanse zepsuc caly wezel, a blad w nim widac dopiero
+        # po kilku minutach od `apply` — shellcheck lapie to w sekunde.
+        working-directory: .
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck terraform/cloud-init/k3s.sh
+
+      - name: Kontrola bezpieczeństwa konfiguracji
+        # tfsec zostal wchloniety przez trivy i nie jest juz rozwijany osobno.
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: terraform
+          # Raport ma byc widoczny, ale nie blokuje demo za brak logow VPC
+          # czy HTTPS — README mowi o tych brakach wprost.
+          exit-code: "0"
+          severity: HIGH,CRITICAL

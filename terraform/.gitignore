@@ -1,0 +1,14 @@
+# NIGDY do repozytorium: klucz prywatny i stan Terraforma
+klucz-ssh
+klucz-ssh.pub
+kubeconfig
+
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+
+# Wartości zmiennych bywają wrażliwe (adres IP, e-mail)
+*.tfvars
+!przyklad.tfvars
