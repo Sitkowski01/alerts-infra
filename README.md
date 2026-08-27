@@ -162,6 +162,11 @@ price-alerts-api-b67b8f585-c5qtt   1/1   Running     0   48s
 price-alerts-migrate-p4zgr         0/1   Completed   0   61s
 ```
 
+![Klaster k3s na EC2 z wdrożonym price-alerts-api](docs/wdrozenie-aws.png)
+
+Wersja jądra `6.17.0-1019-aws` i adres wewnętrzny `10.20.1.253` z sieci `10.20.0.0/16`
+potwierdzają, że to instancja EC2 z tej konfiguracji, a nie klaster lokalny.
+
 Aplikacja odpowiadała przez `Service`, z wnętrza klastra, na dwóch replikach:
 sonda `readyz` z osiągalną bazą, utworzenie alertu `HTTP 201`, zapis bez klucza
 odrzucony `HTTP 401`, notowanie poniżej progu bez efektu, notowanie powyżej progu
