@@ -44,6 +44,19 @@ resource "aws_instance" "wezel" {
   user_data                   = file("${path.module}/cloud-init/k3s.sh")
   user_data_replace_on_change = true
 
+  # NAJWAZNIEJSZA linia kosztowa w calym repo.
+  #
+  # Instancje z rodziny t3 startuja domyslnie w trybie "unlimited": gdy procesor
+  # pracuje dluzej powyzej progu bazowego, AWS DOLICZA oplate za nadmiarowe
+  # kredyty — poza darmowym pulapem, po cichu. Wezel k3s potrafi tak obciazyc
+  # procesor przy starcie i przy budowaniu obrazow.
+  #
+  # "standard" znaczy: przy braku kredytow instancja ZWALNIA zamiast naliczac.
+  # Wolniejsze demo jest lepsze niz niespodzianka na rachunku.
+  credit_specification {
+    cpu_credits = "standard"
+  }
+
   root_block_device {
     volume_size = var.dysk_gb
     volume_type = "gp3"

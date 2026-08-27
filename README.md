@@ -23,9 +23,31 @@ Czego jeszcze tu nie ma, żeby nie generować rachunku: **bramy NAT** (ok. 32 US
 plus transfer — instancja stoi w podsieci publicznej), **load balancera** (ruch wchodzi
 przez Ingress k3s), **Elastic IP** trzymanego bez instancji.
 
-Przy koncie w darmowym pułapie (pierwsze 12 miesięcy) `t3.micro` mieści się
-w 750 h/mies., a 12 GB dysku w limicie 30 GB. Poza tym okresem to ok. **8 USD/mies.**
-za samą instancję — czyli tyle, ile trwa demo, jeśli je wyłączysz.
+### Co konkretnie kosztuje, a co nie
+
+| Zasób | Koszt |
+|---|---|
+| VPC, podsieć, brama internetowa, tablica routingu, grupa zabezpieczeń | **zawsze darmowe** |
+| Para kluczy SSH | **zawsze darmowa** |
+| Budżet z alarmem | **darmowy** (pierwsze dwa budżety na koncie) |
+| EC2 `t3.micro` | darmowe w ramach pułapu, **poza nim ok. 0,011 USD/h** |
+| Dysk gp3 12 GB | darmowe do 30 GB w pułapie, **poza nim ok. 1 USD/mies.** |
+| Transfer wychodzący | pierwsze 100 GB/mies. darmowe — demo zużyje ułamek |
+
+Poza darmowym pułapem cała ta infrastruktura to około **0,013 USD za godzinę**.
+Postawienie jej na dwie godziny, zrobienie zrzutów i `terraform destroy` to
+**mniej niż 3 grosze**. Rachunek robi się z tego dopiero wtedy, gdy się o niej zapomni
+— i właśnie dlatego alarm budżetowy jest w tym samym `apply`.
+
+⚠ **Tryb kredytów procesora ustawiony na `standard`** (`compute.tf`). Instancje t3
+startują domyślnie w trybie `unlimited`, w którym dłuższe obciążenie procesora
+**dolicza opłatę za nadmiarowe kredyty, po cichu i poza darmowym pułapem**. Węzeł k3s
+potrafi tak obciążyć procesor przy starcie. W trybie `standard` instancja przy braku
+kredytów po prostu zwalnia — wolniejsze demo jest lepsze niż niespodzianka na rachunku.
+
+⚠ **Zasady darmowego pułapu AWS zmieniały się w 2025 roku.** Sprawdź, co dokładnie
+obejmuje Twoje konto, na stronie AWS przy jego zakładaniu — nie zakładaj z góry,
+że masz klasyczne 12 miesięcy.
 
 ## Co powstaje
 
