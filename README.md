@@ -71,6 +71,9 @@ terraform plan      # przeczytaj, co powstanie, ZANIM zatwierdzisz
 terraform apply
 ```
 
+`t3.small` nie mieści się w darmowym pułapie EC2 — to jedyna płatna pozycja
+w tej konfiguracji. Reszta zasobów nie kosztuje nic.
+
 Po kilku minutach:
 
 ```bash
@@ -86,12 +89,6 @@ Gdyby węzeł nie wstawał, cały przebieg instalacji k3s jest w logu:
 ```bash
 ssh -i terraform/klucz-ssh ubuntu@<ip> sudo tail -f /var/log/bootstrap-k3s.log
 ```
-
-### Koszt
-
-Instancja z dyskiem to ok. **0,02 USD/h** i jedyna płatna pozycja — `t3.small`
-nie mieści się w darmowym pułapie EC2, który obejmuje wyłącznie `t3.micro`.
-Dwie godziny demo i `terraform destroy` zamykają się w kilku centach.
 
 ### Wdrożenie aplikacji
 
