@@ -3,90 +3,57 @@
 [![CI](https://github.com/Sitkowski01/alerts-infra/actions/workflows/ci.yml/badge.svg)](https://github.com/Sitkowski01/alerts-infra/actions/workflows/ci.yml)
 
 Infrastruktura jako kod dla [price-alerts-api](https://github.com/Sitkowski01/price-alerts-api):
-**Terraform** stawia na AWS jednowęzłowy klaster **k3s** na EC2, na który wdrażasz
-gotowe manifesty Kubernetesa.
-
-## 🔴 Zanim cokolwiek odpalisz — o kosztach
-
-To jest repozytorium, które **wydaje Twoje pieniądze**. Trzy rzeczy, zanim ruszysz:
-
-1. **`terraform destroy`, gdy skończysz.** Największe ryzyko przy nauce AWS to nie
-   jedna instancja, tylko instancja zapomniana na trzy tygodnie.
-2. **Alarm budżetowy zakłada się razem z infrastrukturą** (`budget.tf`), a nie „kiedyś
-   potem". Ostrzeżenie idzie mailem przy 50% i 100% progu oraz przy prognozie
-   przekroczenia. Domyślny próg to 5 USD.
-3. **Świadomie nie ma tu EKS-a.** Zarządzany control plane kosztuje ok. **73 USD/mies.
-   nawet przy zerze podów**. k3s to pełny, certyfikowany Kubernetes w jednym procesie
-   i mieści się na instancji z darmowego pułapu.
-
-Czego jeszcze tu nie ma, żeby nie generować rachunku: **bramy NAT** (ok. 32 USD/mies.
-plus transfer — instancja stoi w podsieci publicznej), **load balancera** (ruch wchodzi
-przez Ingress k3s), **Elastic IP** trzymanego bez instancji.
-
-### Co konkretnie kosztuje, a co nie
-
-| Zasób | Koszt |
-|---|---|
-| VPC, podsieć, brama internetowa, tablica routingu, grupa zabezpieczeń | **zawsze darmowe** |
-| Para kluczy SSH | **zawsze darmowa** |
-| Budżet z alarmem | **darmowy** (pierwsze dwa budżety na koncie) |
-| EC2 `t3.micro` | darmowe w ramach pułapu, **poza nim ok. 0,011 USD/h** |
-| Dysk gp3 12 GB | darmowe do 30 GB w pułapie, **poza nim ok. 1 USD/mies.** |
-| Transfer wychodzący | pierwsze 100 GB/mies. darmowe — demo zużyje ułamek |
-
-Poza darmowym pułapem cała ta infrastruktura to około **0,013 USD za godzinę**.
-Postawienie jej na dwie godziny, zrobienie zrzutów i `terraform destroy` to
-**mniej niż 3 grosze**. Rachunek robi się z tego dopiero wtedy, gdy się o niej zapomni
-— i właśnie dlatego alarm budżetowy jest w tym samym `apply`.
-
-⚠ **Tryb kredytów procesora ustawiony na `standard`** (`compute.tf`). Instancje t3
-startują domyślnie w trybie `unlimited`, w którym dłuższe obciążenie procesora
-**dolicza opłatę za nadmiarowe kredyty, po cichu i poza darmowym pułapem**. Węzeł k3s
-potrafi tak obciążyć procesor przy starcie. W trybie `standard` instancja przy braku
-kredytów po prostu zwalnia — wolniejsze demo jest lepsze niż niespodzianka na rachunku.
-
-### Nowy model rozliczeń AWS (sprawdzone na koncie, 27.08.2026)
-
-Konta zakładane obecnie **nie dostają klasycznego pułapu 12 miesięcy**, tylko
-**pulę kredytów: 100 USD na 6 miesięcy**. Widać ją w konsoli w kafelku
-„Cost and usage" jako *Remaining credits*.
-
-Różnica jest istotna i działa na Twoją korzyść: przy planie darmowym
-**dostęp do usług kończy się, gdy kredyty się wyczerpią** — konto nie zaczyna
-naliczać rachunku po cichu. Zapomniana instancja zjada kredyty, a nie pieniądze.
-
-Przy koszcie ok. **0,013 USD/h** pula 100 USD wystarcza na ponad **7 500 godzin**
-pracy tego klastra, czyli grubo ponad rok ciągłego działania. Dla tego demo
-to praktycznie zero.
-
-⚠ To nie znosi obowiązku `terraform destroy`. Kredyty są też walutą do nauki
-innych usług — nie ma powodu palić ich na klaster, na który nikt nie patrzy.
-
-💡 **Konsola oferuje 100 USD dodatkowych kredytów za pięć zadań**, po 20 USD każde.
-Dwa z nich to dokładnie to, co robi ten Terraform: *„Launching an instance using EC2"*
-i *„Setting up a cost budget with AWS Budgets"*. Sprawdź w kafelku „Explore AWS",
-czy zaliczają się przy tworzeniu zasobów przez Terraform, czy trzeba przejść
-kreator w konsoli.
+**Terraform** stawia na AWS jednowęzłowy klaster **k3s** na EC2, na który wchodzą
+gotowe manifesty Kubernetesa z tamtego repozytorium.
 
 ## Co powstaje
 
 ```
 VPC 10.20.0.0/16
  └── podsieć publiczna 10.20.1.0/24
-      └── EC2 t3.micro (Ubuntu 24.04)
+      └── EC2 t3.small (Ubuntu 24.04)
            └── k3s — jednowęzłowy Kubernetes
                 └── Traefik (Ingress w komplecie z k3s)
 brama internetowa · tablica routingu · grupa zabezpieczeń
 budżet z alarmem mailowym
 ```
 
-Grupa zabezpieczeń wpuszcza **wyłącznie Twój adres IP** na porty 22 (SSH),
+Grupa zabezpieczeń wpuszcza **wyłącznie mój adres IP** na porty 22 (SSH),
 6443 (API Kubernetesa) i 80 (Ingress). Zmienna `moj_ip` ma walidację wymuszającą
-maskę `/32` — wpisanie `0.0.0.0/0` nie przejdzie.
+maskę `/32`, więc wpisanie `0.0.0.0/0` nie przechodzi przez `terraform plan`.
 
-Klucz SSH jest generowany lokalnie (ED25519) i zapisywany na dysk;
-`.gitignore` pilnuje, żeby ani on, ani stan Terraforma, ani kubeconfig
-nie trafiły do repozytorium.
+Klucz SSH powstaje lokalnie (ED25519) przy `apply`. Ani on, ani stan Terraforma,
+ani kubeconfig nie mają prawa trafić do repozytorium — pilnuje tego
+`terraform/.gitignore`.
+
+## Uruchomione na AWS
+
+Ta konfiguracja **stała na AWS** 28.08.2026 w regionie `eu-central-1`.
+Poniżej stan z działającego węzła, nie plan.
+
+```
+$ kubectl get nodes -o wide
+NAME             STATUS   ROLES           VERSION        OS-IMAGE
+ip-10-20-1-253   Ready    control-plane   v1.36.3+k3s1   Ubuntu 24.04.4 LTS
+
+$ kubectl -n price-alerts get pods
+postgres-768dbdbb88-szhvr          1/1   Running     0   3m56s
+price-alerts-api-b67b8f585-4nq86   1/1   Running     0   48s
+price-alerts-api-b67b8f585-c5qtt   1/1   Running     0   48s
+price-alerts-migrate-p4zgr         0/1   Completed   0   61s
+```
+
+![Klaster k3s na EC2 z wdrożonym price-alerts-api](docs/wdrozenie-aws.png)
+
+Wersja jądra `6.17.0-1019-aws` i adres wewnętrzny `10.20.1.253` z sieci `10.20.0.0/16`
+potwierdzają, że to instancja EC2 z tej konfiguracji, a nie klaster lokalny.
+
+Aplikacja odpowiadała przez `Service`, z wnętrza klastra, na dwóch replikach:
+sonda `readyz` z osiągalną bazą, utworzenie alertu `HTTP 201`, zapis bez klucza
+odrzucony `HTTP 401`, notowanie poniżej progu bez efektu, notowanie powyżej progu
+uruchamiające alert.
+
+Zaraz po zrzutach poszło `terraform destroy` — tamten adres już nie odpowiada.
 
 ## Uruchomienie
 
@@ -120,6 +87,19 @@ Gdyby węzeł nie wstawał, cały przebieg instalacji k3s jest w logu:
 ssh -i terraform/klucz-ssh ubuntu@<ip> sudo tail -f /var/log/bootstrap-k3s.log
 ```
 
+### Koszt
+
+Jedyna płatna pozycja to instancja z dyskiem — około **0,02 USD/h**. Dwie godziny
+demo, zrzuty i `terraform destroy` zamykają się w kilku centach. **`t3.small`
+nie należy do darmowego pułapu EC2**; pułap obejmuje wyłącznie `t3.micro`, na którym
+k3s nie wstaje — powód opisany niżej. VPC, podsieć, brama internetowa, tablica
+routingu, grupa zabezpieczeń, para kluczy i sam budżet nie kosztują nic.
+
+Alarm budżetowy powstaje w tym samym `apply` co reszta, a nie „kiedyś potem":
+mail przy 50% progu, przy 100% i przy prognozie przekroczenia, domyślnie od 5 USD.
+Jedyne realne ryzyko kosztowe w tym repozytorium to instancja zapomniana na trzy
+tygodnie i to jest na nią odpowiedź.
+
 ### Wdrożenie aplikacji
 
 Manifesty leżą w [price-alerts-api](https://github.com/Sitkowski01/price-alerts-api/tree/main/k8s):
@@ -142,62 +122,22 @@ kubectl apply -f ../price-alerts-api/k8s/30-deployment.yaml -f ../price-alerts-a
 terraform destroy
 ```
 
-Sprawdź potem w **Cost Explorerze**, filtrując po tagu `Projekt = price-alerts`,
-czy na pewno nic nie zostało. Wszystkie zasoby są otagowane przez `default_tags`.
-
-## Wynik uruchomienia
-
-Ta konfiguracja **stała na AWS** 28.08.2026 w regionie `eu-central-1`.
-Nie jest to plan ani zamiar — poniżej stan z działającego węzła.
-
-```
-$ kubectl get nodes -o wide
-NAME             STATUS   ROLES           VERSION        OS-IMAGE
-ip-10-20-1-253   Ready    control-plane   v1.36.3+k3s1   Ubuntu 24.04.4 LTS
-
-$ kubectl -n price-alerts get pods
-postgres-768dbdbb88-szhvr          1/1   Running     0   3m56s
-price-alerts-api-b67b8f585-4nq86   1/1   Running     0   48s
-price-alerts-api-b67b8f585-c5qtt   1/1   Running     0   48s
-price-alerts-migrate-p4zgr         0/1   Completed   0   61s
-```
-
-![Klaster k3s na EC2 z wdrożonym price-alerts-api](docs/wdrozenie-aws.png)
-
-Wersja jądra `6.17.0-1019-aws` i adres wewnętrzny `10.20.1.253` z sieci `10.20.0.0/16`
-potwierdzają, że to instancja EC2 z tej konfiguracji, a nie klaster lokalny.
-
-Aplikacja odpowiadała przez `Service`, z wnętrza klastra, na dwóch replikach:
-sonda `readyz` z osiągalną bazą, utworzenie alertu `HTTP 201`, zapis bez klucza
-odrzucony `HTTP 401`, notowanie poniżej progu bez efektu, notowanie powyżej progu
-uruchamiające alert.
-
-Po zrobieniu zrzutów: `terraform destroy`.
-
-### Czego nauczyło to uruchomienie
-
-**`t3.micro` nie udźwignie k3s.** Pierwsze podejście stanęło właśnie na tym:
-
-```
-Mem:  911 total, 856 used, 54 available    <- pamiec wyczerpana
-load average: 9.03                          <- wezel sie dusi
-k3s: active od 33 min, zjadl 21 min CPU     <- start nigdy sie nie konczyl
-```
-
-Sam serwer k3s zajmował 553 MB przy gigabajcie pamięci, a API na porcie 6443
-zwracało `TLS handshake timeout` nawet po pół godzinie. Do tego tryb kredytów
-`standard` dławi procesor dokładnie wtedy, gdy k3s najbardziej go potrzebuje —
-przy starcie. Dopiero `t3.small` z 2 GB doprowadził węzeł do `Ready`.
-
-Drugie potknięcie było w opisach reguł grupy zabezpieczeń: **AWS odrzuca myślnik
-pauzę i polskie znaki** w tym polu. `terraform validate` tego nie widzi, bo
-składniowo wszystko jest poprawne — błąd wychodzi dopiero przy `apply`, gdy część
-zasobów już powstała. Opisy są teraz czystym ASCII, z komentarzem ostrzegawczym.
+Potem **Cost Explorer** z filtrem po tagu `Projekt = price-alerts` — wszystkie zasoby
+są tagowane przez `default_tags`, więc cokolwiek zostało, będzie widać.
 
 ## Decyzje, o które warto zapytać
 
-- **k3s zamiast EKS** — powód kosztowy opisany wyżej. To nadal certyfikowany
-  Kubernetes: te same manifesty, te same sondy, ten sam `kubectl`.
+- **k3s zamiast EKS.** Zarządzany control plane EKS kosztuje ok. 73 USD/mies. nawet
+  przy zerze podów. k3s to certyfikowany Kubernetes w jednym procesie: te same
+  manifesty, te same sondy, ten sam `kubectl`, bez opłaty za sam fakt istnienia klastra.
+- **Brak bramy NAT, load balancera i Elastic IP.** Brama NAT to ok. 32 USD/mies. plus
+  transfer, a instancja stoi w podsieci publicznej i jej nie potrzebuje. Ruch wchodzi
+  przez Ingress k3s, więc load balancer też odpada. To są trzy pozycje, które
+  najczęściej robią rachunek w projektach demonstracyjnych.
+- **Tryb kredytów procesora na `standard`** (`compute.tf`). Instancje t3 startują
+  domyślnie w trybie `unlimited`, w którym dłuższe obciążenie procesora dolicza opłatę
+  za nadmiarowe kredyty — po cichu. Węzeł k3s potrafi tak obciążyć procesor przy
+  starcie. W trybie `standard` instancja przy braku kredytów po prostu zwalnia.
 - **Reguły grupy zabezpieczeń jako osobne zasoby**, nie bloki `inline`. Przy blokach
   inline Terraform odtwarza całą grupę przy każdej zmianie jednej reguły.
 - **IMDSv2 wymuszone** (`http_tokens = "required"`). Pierwsza wersja usługi metadanych
@@ -212,13 +152,35 @@ zasobów już powstała. Opisy są teraz czystym ASCII, z komentarzem ostrzegawc
 - **Bootstrap czeka, aż węzeł zgłosi gotowość**, zamiast kończyć się od razu.
   Inaczej pierwszy `kubectl apply` trafiałby w niedziałające API.
 
+## Czego nauczyło mnie to uruchomienie
+
+**`t3.micro` nie udźwignie k3s.** Pierwsze podejście stanęło właśnie na tym:
+
+```
+Mem:  911 total, 856 used, 54 available    <- pamiec wyczerpana
+load average: 9.03                          <- wezel sie dusi
+k3s: active od 33 min, zjadl 21 min CPU     <- start nigdy sie nie konczyl
+```
+
+Sam serwer k3s zajmował 553 MB przy gigabajcie pamięci, a API na porcie 6443
+zwracało `TLS handshake timeout` nawet po pół godzinie. Dokłada się do tego tryb
+kredytów `standard`, który dławi procesor dokładnie wtedy, gdy k3s najbardziej go
+potrzebuje — przy starcie. Dopiero `t3.small` z 2 GB doprowadził węzeł do `Ready`.
+Cały powód siedzi w opisie zmiennej `typ_instancji`, żeby nikt nie cofnął tego
+„dla oszczędności".
+
+**AWS odrzuca myślnik pauzę i polskie znaki w opisach reguł grupy zabezpieczeń.**
+`terraform validate` tego nie widzi, bo składniowo wszystko jest poprawne — błąd
+wychodzi dopiero przy `apply`, gdy część zasobów już powstała. Opisy są teraz
+czystym ASCII, z komentarzem ostrzegawczym.
+
 ## Czego tu jeszcze nie ma
 
-Uczciwie: to jest infrastruktura **demonstracyjna**, nie produkcyjna.
+To jest infrastruktura **demonstracyjna**, nie produkcyjna.
 
 - **Stan Terraforma leży lokalnie.** Na produkcji idzie do S3 z blokadą w DynamoDB,
   żeby dwie osoby nie zaaplikowały naraz.
 - **Jeden węzeł** — brak wysokiej dostępności. Padnie instancja, padnie klaster.
 - **Baza działa w klastrze** na `emptyDir`. Na produkcji to RDS, nie pod.
-- **Brak HTTPS** — Ingress wystawia port 80 wyłącznie na Twój adres IP.
+- **Brak HTTPS** — Ingress wystawia port 80 wyłącznie na mój adres IP.
   Z prawdziwą domeną doszedłby cert-manager i Let's Encrypt.

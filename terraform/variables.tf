@@ -22,7 +22,9 @@ variable "typ_instancji" {
     dokładnie wtedy, gdy k3s najbardziej go potrzebuje — przy starcie.
 
     t3.small ma 2 GB RAM i dwa razy wyższy pułap bazowy procesora.
-    Kosztuje ok. 0,022 USD/h, czyli 4 grosze za dwie godziny demo.
+    Kosztuje ok. 0,022 USD/h, czyli jakieś 4 centy za dwie godziny demo.
+    Uwaga: t3.small NIE jest objęty darmowym pułapem EC2 — pułap obejmuje
+    wyłącznie t3.micro. To jedyna płatna pozycja w całej konfiguracji.
   OPIS
   type        = string
   default     = "t3.small"
