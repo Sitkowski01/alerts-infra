@@ -89,16 +89,9 @@ ssh -i terraform/klucz-ssh ubuntu@<ip> sudo tail -f /var/log/bootstrap-k3s.log
 
 ### Koszt
 
-Jedyna płatna pozycja to instancja z dyskiem — około **0,02 USD/h**. Dwie godziny
-demo, zrzuty i `terraform destroy` zamykają się w kilku centach. **`t3.small`
-nie należy do darmowego pułapu EC2**; pułap obejmuje wyłącznie `t3.micro`, na którym
-k3s nie wstaje — powód opisany niżej. VPC, podsieć, brama internetowa, tablica
-routingu, grupa zabezpieczeń, para kluczy i sam budżet nie kosztują nic.
-
-Alarm budżetowy powstaje w tym samym `apply` co reszta, a nie „kiedyś potem":
-mail przy 50% progu, przy 100% i przy prognozie przekroczenia, domyślnie od 5 USD.
-Jedyne realne ryzyko kosztowe w tym repozytorium to instancja zapomniana na trzy
-tygodnie i to jest na nią odpowiedź.
+Instancja z dyskiem to ok. **0,02 USD/h** i jedyna płatna pozycja — `t3.small`
+nie mieści się w darmowym pułapie EC2, który obejmuje wyłącznie `t3.micro`.
+Dwie godziny demo i `terraform destroy` zamykają się w kilku centach.
 
 ### Wdrożenie aplikacji
 
@@ -125,19 +118,26 @@ terraform destroy
 Potem **Cost Explorer** z filtrem po tagu `Projekt = price-alerts` — wszystkie zasoby
 są tagowane przez `default_tags`, więc cokolwiek zostało, będzie widać.
 
-## Decyzje, o które warto zapytać
+## Decyzje projektowe
 
-- **k3s zamiast EKS.** Zarządzany control plane EKS kosztuje ok. 73 USD/mies. nawet
-  przy zerze podów. k3s to certyfikowany Kubernetes w jednym procesie: te same
-  manifesty, te same sondy, ten sam `kubectl`, bez opłaty za sam fakt istnienia klastra.
-- **Brak bramy NAT, load balancera i Elastic IP.** Brama NAT to ok. 32 USD/mies. plus
-  transfer, a instancja stoi w podsieci publicznej i jej nie potrzebuje. Ruch wchodzi
-  przez Ingress k3s, więc load balancer też odpada. To są trzy pozycje, które
-  najczęściej robią rachunek w projektach demonstracyjnych.
-- **Tryb kredytów procesora na `standard`** (`compute.tf`). Instancje t3 startują
-  domyślnie w trybie `unlimited`, w którym dłuższe obciążenie procesora dolicza opłatę
-  za nadmiarowe kredyty — po cichu. Węzeł k3s potrafi tak obciążyć procesor przy
-  starcie. W trybie `standard` instancja przy braku kredytów po prostu zwalnia.
+- **k3s zamiast EKS.** k3s jest certyfikowanym Kubernetesem, więc manifesty, sondy
+  i `kubectl` są identyczne — to, co działa tutaj, pojedzie na EKS bez zmian.
+  Oddaję za to zarządzany control plane: wysoką dostępność, automatyczne aktualizacje
+  i integrację z IAM. Przy jednym węźle demonstracyjnym nie skorzystałbym z żadnej
+  z tych rzeczy, a EKS liczy ok. 73 USD/mies. za sam fakt istnienia klastra.
+- **Węzeł w podsieci publicznej, bez bramy NAT i load balancera.** Instancja ma
+  publiczny adres i wychodzi do internetu przez bramę internetową, więc brama NAT
+  nie miałaby czego obsługiwać. Ruch przychodzący kończy na Ingressie k3s, więc
+  load balancer też odpada. **Na produkcji ta decyzja byłaby odwrotna** — węzeł
+  trafiłby do podsieci prywatnej za NAT, a ruch wchodziłby przez ALB.
+- **Tryb kredytów procesora na `standard`** (`compute.tf`). t3 to instancje
+  burstowalne: powyżej progu bazowego procesor jedzie z kredytów. W domyślnym trybie
+  `unlimited` zużycie ponad pulę jest doliczane do rachunku, w `standard` instancja
+  po prostu zwalnia. Wybrałem zwalnianie — i ta sama decyzja wydłużyła start k3s
+  na `t3.micro` na tyle, że węzeł w ogóle nie wstawał. Opisuję to niżej.
+- **Alarm budżetowy powstaje w tym samym `apply` co reszta** (`budget.tf`).
+  Zabezpieczenie dokładane po fakcie to zabezpieczenie, którego nie ma. Mail przy
+  50% progu, przy 100% i przy prognozie przekroczenia.
 - **Reguły grupy zabezpieczeń jako osobne zasoby**, nie bloki `inline`. Przy blokach
   inline Terraform odtwarza całą grupę przy każdej zmianie jednej reguły.
 - **IMDSv2 wymuszone** (`http_tokens = "required"`). Pierwsza wersja usługi metadanych
